@@ -1,0 +1,116 @@
+name: Rails Test Suite
+
+on:
+  workflow_call:
+    inputs:
+      ruby_version:
+        description: 'Ruby version to use'
+        required: false
+        type: string
+        default: '3.2'
+      rails_env:
+        description: 'RAILS_ENV value'
+        required: false
+        type: string
+        default: 'test'
+      node_version:
+        description: 'Node.js version (for asset compilation)'
+        required: false
+        type: string
+        default: '20'
+      postgres_version:
+        description: 'PostgreSQL version for service container'
+        required: false
+        type: string
+        default: '16'
+      bundler_cache:
+        description: 'Enable bundler cache'
+        required: false
+        type: boolean
+        default: true
+      run_system_tests:
+        description: 'Run system tests (requires Chrome)'
+        required: false
+        type: boolean
+        default: true
+      test_command:
+        description: 'Custom test command (overrides default)'
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:${{ inputs.postgres_version }}
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      RAILS_ENV: ${{ inputs.rails_env }}
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ inputs.ruby_version }}
+          bundler-cache: ${{ inputs.bundler_cache }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpq-dev
+
+      - name: Setup database
+        run: |
+          bin/rails db:create
+          bin/rails db:schema:load
+
+      - name: Precompile assets
+        run: bin/rails assets:precompile
+        continue-on-error: true
+
+      - name: Run unit and integration tests
+        if: ${{ inputs.test_command == '' }}
+        run: bin/rails test
+
+      - name: Run system tests
+        if: ${{ inputs.run_system_tests && inputs.test_command == '' }}
+        run: bin/rails test:system
+
+      - name: Run custom test command
+        if: ${{ inputs.test_command != '' }}
+        run: ${{ inputs.test_command }}
+
+      - name: Upload screenshots on failure
+        if: failure() && inputs.run_system_tests
+        uses: actions/upload-artifact@v4
+        with:
+          name: system-test-screenshots
+          path: tmp/screenshots/
+          if-no-files-found: ignore

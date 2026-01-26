@@ -133,6 +133,57 @@ jobs:
     uses: eckslopez/platform-pipelines/.github/workflows/security-scan.yml@main
 ```
 
+### Ruby on Rails
+
+#### `.github/workflows/rails-test.yml`
+Comprehensive Rails test suite with PostgreSQL.
+
+**Features:**
+- Sets up Ruby and PostgreSQL service container
+- Runs database setup and migrations
+- Executes unit, integration, and system tests
+- Uploads screenshots on system test failures
+- Configurable Ruby version, PostgreSQL version, and test commands
+
+**Usage:**
+```yaml
+# In your Rails repo
+name: Tests
+on: [pull_request, push]
+
+jobs:
+  test:
+    uses: eckslopez/platform-pipelines/.github/workflows/rails-test.yml@main
+    with:
+      ruby_version: '3.2'
+      run_system_tests: true
+```
+
+#### `.github/workflows/rails-lint.yml`
+Rails code quality and security checks.
+
+**Features:**
+- RuboCop for Ruby style and best practices
+- Brakeman for Rails security vulnerabilities
+- bundler-audit for dependency vulnerability scanning
+- Configurable to enable/disable individual checks
+
+**Usage:**
+```yaml
+# In your Rails repo
+name: Lint & Security
+on: [pull_request]
+
+jobs:
+  lint:
+    uses: eckslopez/platform-pipelines/.github/workflows/rails-lint.yml@main
+    with:
+      ruby_version: '3.2'
+      run_rubocop: true
+      run_brakeman: true
+      run_bundler_audit: true
+```
+
 ### Jekyll / Static Sites
 
 #### `.github/workflows/jekyll-deploy.yml`
@@ -277,6 +328,8 @@ platform-pipelines/
 │       ├── terraform-apply.yml                   # Generic Terraform apply
 │       ├── terraform-rds.yml                     # AWS Terraform with OIDC
 │       ├── security-scan.yml                     # Gitleaks secret scanning
+│       ├── rails-test.yml                        # Rails test suite with PostgreSQL
+│       ├── rails-lint.yml                        # Rails lint & security checks
 │       ├── jekyll-deploy.yml                     # Jekyll GitHub Pages deploy
 │       ├── jekyll-quality.yml                    # Jekyll quality checks
 │       ├── jekyll-validate-front-matter.yml      # Jekyll front matter validation

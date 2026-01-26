@@ -1,0 +1,108 @@
+name: Rails Lint & Security
+
+on:
+  workflow_call:
+    inputs:
+      ruby_version:
+        description: 'Ruby version to use'
+        required: false
+        type: string
+        default: '3.2'
+      run_rubocop:
+        description: 'Run RuboCop linter'
+        required: false
+        type: boolean
+        default: true
+      run_brakeman:
+        description: 'Run Brakeman security scanner'
+        required: false
+        type: boolean
+        default: true
+      run_bundler_audit:
+        description: 'Run bundler-audit for dependency vulnerabilities'
+        required: false
+        type: boolean
+        default: true
+      rubocop_format:
+        description: 'RuboCop output format'
+        required: false
+        type: string
+        default: 'github'
+      brakeman_format:
+        description: 'Brakeman output format'
+        required: false
+        type: string
+        default: 'text'
+
+jobs:
+  lint:
+    name: Lint & Security Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ inputs.ruby_version }}
+          bundler-cache: true
+
+      - name: Install RuboCop
+        if: ${{ inputs.run_rubocop }}
+        run: |
+          if ! bundle show rubocop > /dev/null 2>&1; then
+            gem install rubocop rubocop-rails rubocop-performance
+          fi
+
+      - name: Run RuboCop
+        if: ${{ inputs.run_rubocop }}
+        run: |
+          if bundle show rubocop > /dev/null 2>&1; then
+            bundle exec rubocop --format ${{ inputs.rubocop_format }}
+          else
+            rubocop --format ${{ inputs.rubocop_format }}
+          fi
+        continue-on-error: true
+
+      - name: Install Brakeman
+        if: ${{ inputs.run_brakeman }}
+        run: |
+          if ! bundle show brakeman > /dev/null 2>&1; then
+            gem install brakeman
+          fi
+
+      - name: Run Brakeman
+        if: ${{ inputs.run_brakeman }}
+        run: |
+          if bundle show brakeman > /dev/null 2>&1; then
+            bundle exec brakeman --format ${{ inputs.brakeman_format }} --no-pager
+          else
+            brakeman --format ${{ inputs.brakeman_format }} --no-pager
+          fi
+
+      - name: Install bundler-audit
+        if: ${{ inputs.run_bundler_audit }}
+        run: |
+          if ! bundle show bundler-audit > /dev/null 2>&1; then
+            gem install bundler-audit
+          fi
+
+      - name: Update bundler-audit database
+        if: ${{ inputs.run_bundler_audit }}
+        run: |
+          if bundle show bundler-audit > /dev/null 2>&1; then
+            bundle exec bundle-audit update
+          else
+            bundle-audit update
+          fi
+
+      - name: Run bundler-audit
+        if: ${{ inputs.run_bundler_audit }}
+        run: |
+          if bundle show bundler-audit > /dev/null 2>&1; then
+            bundle exec bundle-audit check
+          else
+            bundle-audit check
+          fi
