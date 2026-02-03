@@ -1,0 +1,128 @@
+name: Python Tests
+
+on:
+  workflow_call:
+    inputs:
+      python_version:
+        description: 'Python version to use'
+        required: false
+        type: string
+        default: '3.12'
+      requirements_file:
+        description: 'Path to requirements file'
+        required: false
+        type: string
+        default: 'requirements.txt'
+      test_command:
+        description: 'Command to run tests'
+        required: false
+        type: string
+        default: 'pytest tests/ -v --tb=short'
+      working_directory:
+        description: 'Working directory for commands'
+        required: false
+        type: string
+        default: '.'
+      use_database:
+        description: 'Start Postgres service container'
+        required: false
+        type: boolean
+        default: true
+      use_redis:
+        description: 'Start Redis service container'
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    services:
+      db:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+        # Only start if use_database is true
+        if: ${{ inputs.use_database }}
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+        # Only start if use_redis is true
+        if: ${{ inputs.use_redis }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+          cache: 'pip'
+          cache-dependency-path: ${{ inputs.working_directory }}/${{ inputs.requirements_file }}
+
+      - name: Install dependencies
+        working-directory: ${{ inputs.working_directory }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov pytest-flask
+          if [ -f ${{ inputs.requirements_file }} ]; then
+            pip install -r ${{ inputs.requirements_file }}
+          fi
+
+      - name: Wait for PostgreSQL to be ready
+        if: ${{ inputs.use_database }}
+        run: |
+          for i in {1..30}; do
+            if pg_isready -h 127.0.0.1 -p 5432 -U postgres; then
+              echo "PostgreSQL is ready"
+              break
+            fi
+            echo "Waiting for PostgreSQL... ($i/30)"
+            sleep 2
+          done
+
+      - name: Run tests
+        working-directory: ${{ inputs.working_directory }}
+        env:
+          # Database connection
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_NAME: test_db
+          DB_USER: postgres
+          DB_PASSWORD: test_password
+          # Redis connection
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: 6379
+          # Flask settings
+          FLASK_ENV: testing
+          TESTING: true
+        run: ${{ inputs.test_command }}
+
+      - name: Upload coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            coverage.xml
+            htmlcov/
+          retention-days: 7

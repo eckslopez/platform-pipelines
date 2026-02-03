@@ -1,0 +1,82 @@
+name: Python Lint
+
+on:
+  workflow_call:
+    inputs:
+      python_version:
+        description: 'Python version to use'
+        required: false
+        type: string
+        default: '3.12'
+      working_directory:
+        description: 'Working directory for commands'
+        required: false
+        type: string
+        default: '.'
+      run_ruff:
+        description: 'Run Ruff linter'
+        required: false
+        type: boolean
+        default: true
+      run_black:
+        description: 'Run Black formatter check'
+        required: false
+        type: boolean
+        default: true
+      run_mypy:
+        description: 'Run mypy type checker'
+        required: false
+        type: boolean
+        default: false
+      ruff_args:
+        description: 'Additional Ruff arguments'
+        required: false
+        type: string
+        default: 'check .'
+      black_args:
+        description: 'Additional Black arguments'
+        required: false
+        type: string
+        default: '--check --diff .'
+      mypy_args:
+        description: 'Additional mypy arguments'
+        required: false
+        type: string
+        default: '.'
+
+jobs:
+  lint:
+    name: Python Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Install linting tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff black mypy
+
+      - name: Run Ruff
+        if: ${{ inputs.run_ruff }}
+        working-directory: ${{ inputs.working_directory }}
+        run: ruff ${{ inputs.ruff_args }}
+        continue-on-error: false
+
+      - name: Run Black
+        if: ${{ inputs.run_black }}
+        working-directory: ${{ inputs.working_directory }}
+        run: black ${{ inputs.black_args }}
+        continue-on-error: false
+
+      - name: Run mypy
+        if: ${{ inputs.run_mypy }}
+        working-directory: ${{ inputs.working_directory }}
+        run: mypy ${{ inputs.mypy_args }}
+        continue-on-error: false
