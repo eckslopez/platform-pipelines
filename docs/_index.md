@@ -1,5 +1,5 @@
 ---
-title: "Docs"
+title: "Platform Pipelines"
 ---
 
 Work in progress.
