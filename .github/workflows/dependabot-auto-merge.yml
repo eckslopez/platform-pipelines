@@ -1,0 +1,126 @@
+name: Dependabot Auto-Merge
+
+on:
+  workflow_call:
+    inputs:
+      auto_merge_major:
+        description: 'Auto-merge major version updates (default: false - requires manual review)'
+        type: boolean
+        default: false
+        required: false
+      auto_merge_minor:
+        description: 'Auto-merge minor version updates (default: true)'
+        type: boolean
+        default: true
+        required: false
+      auto_merge_patch:
+        description: 'Auto-merge patch version updates (default: true)'
+        type: boolean
+        default: true
+        required: false
+      merge_method:
+        description: 'Merge method to use (merge, squash, or rebase)'
+        type: string
+        default: 'squash'
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-approve:
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]'
+    steps:
+      - name: Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Auto-approve PR
+        run: gh pr review --approve "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  auto-merge:
+    runs-on: ubuntu-latest
+    needs: auto-approve
+    if: github.actor == 'dependabot[bot]'
+    steps:
+      - name: Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Wait for checks to complete
+        run: |
+          echo "Waiting for all required checks to pass..."
+          gh pr checks "$PR_URL" --watch --interval 10
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge for patch updates
+        if: |
+          steps.metadata.outputs.update-type == 'version-update:semver-patch' &&
+          inputs.auto_merge_patch == true
+        run: |
+          echo "Auto-merging patch update"
+          gh pr merge --auto --${{ inputs.merge_method }} "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge for minor updates
+        if: |
+          steps.metadata.outputs.update-type == 'version-update:semver-minor' &&
+          inputs.auto_merge_minor == true
+        run: |
+          echo "Auto-merging minor update"
+          gh pr merge --auto --${{ inputs.merge_method }} "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge for major updates
+        if: |
+          steps.metadata.outputs.update-type == 'version-update:semver-major' &&
+          inputs.auto_merge_major == true
+        run: |
+          echo "Auto-merging major update"
+          gh pr merge --auto --${{ inputs.merge_method }} "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Comment on major updates requiring manual review
+        if: |
+          steps.metadata.outputs.update-type == 'version-update:semver-major' &&
+          inputs.auto_merge_major == false
+        run: |
+          gh pr comment "$PR_URL" --body "**Major version update detected**: ${{ steps.metadata.outputs.dependency-names }} from ${{ steps.metadata.outputs.previous-version }} to ${{ steps.metadata.outputs.new-version }}
+
+Auto-merge is disabled for major updates in this repository. Please review the following before merging:
+- Breaking changes in the changelog
+- Migration guide (if any)
+- Test coverage for new behavior
+- Impact on dependent services
+
+Once reviewed, you can manually merge this PR."
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Comment on minor updates requiring manual review
+        if: |
+          steps.metadata.outputs.update-type == 'version-update:semver-minor' &&
+          inputs.auto_merge_minor == false
+        run: |
+          gh pr comment "$PR_URL" --body "**Minor version update**: Auto-merge is disabled for minor updates in this repository. Please review and merge manually."
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
