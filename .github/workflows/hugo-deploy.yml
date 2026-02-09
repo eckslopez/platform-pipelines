@@ -65,6 +65,12 @@ jobs:
         id: pages
         uses: actions/configure-pages@v5
 
+      - name: Update Hugo Modules
+        env:
+          GOPRIVATE: ${{ inputs.goprivate }}
+          GONOSUMDB: ${{ inputs.gonosumdb }}
+        run: hugo mod get -u
+
       - name: Build
         env:
           GOPRIVATE: ${{ inputs.goprivate }}
