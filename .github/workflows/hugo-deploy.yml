@@ -65,6 +65,13 @@ jobs:
         id: pages
         uses: actions/configure-pages@v5
 
+      - name: Debug config
+        run: |
+          pwd
+          ls -la
+          ls -la hugo.toml
+          sed -n '1,120p' hugo.toml
+
       - name: Update Hugo Modules
         env:
           GOPRIVATE: ${{ inputs.goprivate }}
