@@ -82,7 +82,7 @@ jobs:
         env:
           GOPRIVATE: ${{ inputs.goprivate }}
           GONOSUMDB: ${{ inputs.gonosumdb }}
-        run: hugo --config hugo.toml mod get -u
+        run: hugo mod get -u
 
       - name: Build
         env:
