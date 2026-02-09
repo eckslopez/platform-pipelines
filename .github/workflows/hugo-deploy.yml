@@ -65,6 +65,12 @@ jobs:
         id: pages
         uses: actions/configure-pages@v5
 
+      - name: Ensure Relearn Theme
+        run: |
+          if [ ! -d themes/hugo-theme-relearn ]; then
+            git clone --depth 1 https://github.com/McShelby/hugo-theme-relearn themes/hugo-theme-relearn
+          fi
+
       - name: Debug config
         run: |
           pwd
