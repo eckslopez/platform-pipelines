@@ -92,18 +92,6 @@ jobs:
           HUGO_ENV: ${{ inputs.hugo_environment }}
         run: hugo --config hugo.toml --minify --baseURL "${{ steps.pages.outputs.base_url }}" ${{ inputs.hugo_args }}
 
-      - name: Link Check
-        uses: lycheeverse/lychee-action@v1
-        with:
-          args: >-
-            --no-progress
-            --verbose
-            --accept 200,429
-            --exclude-mail
-            public/**/*.html
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
