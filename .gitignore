@@ -1,1 +1,25 @@
+# Local assistant/context files
 CLAUDE.md
+.claude/
+
+# macOS / OS noise
+.DS_Store
+Thumbs.db
+
+# Editor / IDE settings
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment and secrets
+.env
+.env.*
+*.local
+
+# Logs and temp files
+*.log
+tmp/
+temp/
+*.tmp
